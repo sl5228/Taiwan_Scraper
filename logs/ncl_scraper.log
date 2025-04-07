@@ -1,0 +1,114 @@
+2025-03-31 20:57:24,147 - ERROR - Error setting up database: unable to open database file
+2025-03-31 20:57:24,147 - INFO - Starting new search for keyword: 會計學
+2025-03-31 20:57:24,147 - INFO - ====== WebDriver manager ======
+2025-03-31 20:57:24,339 - INFO - Get LATEST chromedriver version for google-chrome
+2025-03-31 20:57:24,369 - INFO - Get LATEST chromedriver version for google-chrome
+2025-03-31 20:57:24,389 - INFO - Driver [/Users/samlopez/.wdm/drivers/chromedriver/mac64/134.0.6998.165/chromedriver-mac-arm64/chromedriver] found in cache
+2025-03-31 20:57:27,426 - INFO - Navigated to the advanced search URL directly
+2025-03-31 20:57:28,556 - INFO - Saved screenshot of the advanced search page
+2025-03-31 20:57:32,146 - ERROR - Error during advanced search: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=134.0.6998.166)
+Stacktrace:
+0   chromedriver                        0x0000000100cbb6c8 cxxbridge1$str$ptr + 2791212
+1   chromedriver                        0x0000000100cb3c9c cxxbridge1$str$ptr + 2759936
+2   chromedriver                        0x0000000100805e30 cxxbridge1$string$len + 92928
+3   chromedriver                        0x00000001007dfa00 chromedriver + 129536
+4   chromedriver                        0x0000000100875418 cxxbridge1$string$len + 549096
+5   chromedriver                        0x000000010088e0f8 cxxbridge1$string$len + 650696
+6   chromedriver                        0x00000001008412fc cxxbridge1$string$len + 335820
+7   chromedriver                        0x0000000100c806c4 cxxbridge1$str$ptr + 2549544
+8   chromedriver                        0x0000000100c83988 cxxbridge1$str$ptr + 2562540
+9   chromedriver                        0x0000000100c6071c cxxbridge1$str$ptr + 2418560
+10  chromedriver                        0x0000000100c841e8 cxxbridge1$str$ptr + 2564684
+11  chromedriver                        0x0000000100c51750 cxxbridge1$str$ptr + 2357172
+12  chromedriver                        0x0000000100ca3f58 cxxbridge1$str$ptr + 2695100
+13  chromedriver                        0x0000000100ca40e0 cxxbridge1$str$ptr + 2695492
+14  chromedriver                        0x0000000100cb3910 cxxbridge1$str$ptr + 2759028
+15  libsystem_pthread.dylib             0x00000001a742426c _pthread_start + 148
+16  libsystem_pthread.dylib             0x00000001a741f08c thread_start + 8
+
+2025-03-31 20:57:32,148 - ERROR - Error in process_single_keyword for '會計學': Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=134.0.6998.166)
+Stacktrace:
+0   chromedriver                        0x0000000100cbb6c8 cxxbridge1$str$ptr + 2791212
+1   chromedriver                        0x0000000100cb3c9c cxxbridge1$str$ptr + 2759936
+2   chromedriver                        0x0000000100805e30 cxxbridge1$string$len + 92928
+3   chromedriver                        0x00000001007dfa00 chromedriver + 129536
+4   chromedriver                        0x0000000100875418 cxxbridge1$string$len + 549096
+5   chromedriver                        0x000000010088e0f8 cxxbridge1$string$len + 650696
+6   chromedriver                        0x00000001008412fc cxxbridge1$string$len + 335820
+7   chromedriver                        0x0000000100c806c4 cxxbridge1$str$ptr + 2549544
+8   chromedriver                        0x0000000100c83988 cxxbridge1$str$ptr + 2562540
+9   chromedriver                        0x0000000100c6071c cxxbridge1$str$ptr + 2418560
+10  chromedriver                        0x0000000100c841e8 cxxbridge1$str$ptr + 2564684
+11  chromedriver                        0x0000000100c51750 cxxbridge1$str$ptr + 2357172
+12  chromedriver                        0x0000000100ca3f58 cxxbridge1$str$ptr + 2695100
+13  chromedriver                        0x0000000100ca40e0 cxxbridge1$str$ptr + 2695492
+14  chromedriver                        0x0000000100cb3910 cxxbridge1$str$ptr + 2759028
+15  libsystem_pthread.dylib             0x00000001a742426c _pthread_start + 148
+16  libsystem_pthread.dylib             0x00000001a741f08c thread_start + 8
+
+2025-03-31 20:57:32,227 - INFO - Closed browser for keyword '會計學'
+2025-03-31 20:57:32,227 - INFO - Waiting 18 seconds before next keyword
+2025-03-31 20:57:50,232 - INFO - Starting new search for keyword: 農業
+2025-03-31 20:57:50,234 - INFO - ====== WebDriver manager ======
+2025-03-31 20:57:50,446 - INFO - Get LATEST chromedriver version for google-chrome
+2025-03-31 20:57:50,479 - INFO - Get LATEST chromedriver version for google-chrome
+2025-03-31 20:57:50,519 - INFO - Driver [/Users/samlopez/.wdm/drivers/chromedriver/mac64/134.0.6998.165/chromedriver-mac-arm64/chromedriver] found in cache
+2025-03-31 20:57:53,459 - INFO - Navigated to the advanced search URL directly
+2025-03-31 20:57:54,783 - INFO - Saved screenshot of the advanced search page
+2025-03-31 20:57:55,804 - ERROR - Error during advanced search: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=134.0.6998.166)
+Stacktrace:
+0   chromedriver                        0x000000010102f6c8 cxxbridge1$str$ptr + 2791212
+1   chromedriver                        0x0000000101027c9c cxxbridge1$str$ptr + 2759936
+2   chromedriver                        0x0000000100b79e30 cxxbridge1$string$len + 92928
+3   chromedriver                        0x0000000100b53a00 chromedriver + 129536
+4   chromedriver                        0x0000000100be9418 cxxbridge1$string$len + 549096
+5   chromedriver                        0x0000000100c020f8 cxxbridge1$string$len + 650696
+6   chromedriver                        0x0000000100bb52fc cxxbridge1$string$len + 335820
+7   chromedriver                        0x0000000100ff46c4 cxxbridge1$str$ptr + 2549544
+8   chromedriver                        0x0000000100ff7988 cxxbridge1$str$ptr + 2562540
+9   chromedriver                        0x0000000100fd471c cxxbridge1$str$ptr + 2418560
+10  chromedriver                        0x0000000100ff81e8 cxxbridge1$str$ptr + 2564684
+11  chromedriver                        0x0000000100fc5750 cxxbridge1$str$ptr + 2357172
+12  chromedriver                        0x0000000101017f58 cxxbridge1$str$ptr + 2695100
+13  chromedriver                        0x00000001010180e0 cxxbridge1$str$ptr + 2695492
+14  chromedriver                        0x0000000101027910 cxxbridge1$str$ptr + 2759028
+15  libsystem_pthread.dylib             0x00000001a742426c _pthread_start + 148
+16  libsystem_pthread.dylib             0x00000001a741f08c thread_start + 8
+
+2025-03-31 20:57:55,806 - ERROR - Error in process_single_keyword for '農業': Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=134.0.6998.166)
+Stacktrace:
+0   chromedriver                        0x000000010102f6c8 cxxbridge1$str$ptr + 2791212
+1   chromedriver                        0x0000000101027c9c cxxbridge1$str$ptr + 2759936
+2   chromedriver                        0x0000000100b79e30 cxxbridge1$string$len + 92928
+3   chromedriver                        0x0000000100b53a00 chromedriver + 129536
+4   chromedriver                        0x0000000100be9418 cxxbridge1$string$len + 549096
+5   chromedriver                        0x0000000100c020f8 cxxbridge1$string$len + 650696
+6   chromedriver                        0x0000000100bb52fc cxxbridge1$string$len + 335820
+7   chromedriver                        0x0000000100ff46c4 cxxbridge1$str$ptr + 2549544
+8   chromedriver                        0x0000000100ff7988 cxxbridge1$str$ptr + 2562540
+9   chromedriver                        0x0000000100fd471c cxxbridge1$str$ptr + 2418560
+10  chromedriver                        0x0000000100ff81e8 cxxbridge1$str$ptr + 2564684
+11  chromedriver                        0x0000000100fc5750 cxxbridge1$str$ptr + 2357172
+12  chromedriver                        0x0000000101017f58 cxxbridge1$str$ptr + 2695100
+13  chromedriver                        0x00000001010180e0 cxxbridge1$str$ptr + 2695492
+14  chromedriver                        0x0000000101027910 cxxbridge1$str$ptr + 2759028
+15  libsystem_pthread.dylib             0x00000001a742426c _pthread_start + 148
+16  libsystem_pthread.dylib             0x00000001a741f08c thread_start + 8
+
+2025-03-31 20:57:55,876 - INFO - Closed browser for keyword '農業'
+2025-03-31 20:57:55,876 - INFO - Waiting 15 seconds before next keyword
+2025-03-31 20:58:10,881 - INFO - Starting new search for keyword: 農學
+2025-03-31 20:58:10,883 - INFO - ====== WebDriver manager ======
+2025-03-31 20:58:11,047 - INFO - Get LATEST chromedriver version for google-chrome
+2025-03-31 20:58:11,078 - INFO - Get LATEST chromedriver version for google-chrome
+2025-03-31 20:58:11,106 - INFO - Driver [/Users/samlopez/.wdm/drivers/chromedriver/mac64/134.0.6998.165/chromedriver-mac-arm64/chromedriver] found in cache
+2025-03-31 20:58:13,599 - INFO - Navigated to the advanced search URL directly
+2025-03-31 20:58:14,740 - INFO - Saved screenshot of the advanced search page

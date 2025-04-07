@@ -192,6 +192,10 @@ def scrape_taiwan_ncl(category,db_path):
         # Add category number (add the description later)
         books_df['category'] = category
 
+        # Create the directory if it doesn't exist
+        import os
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+
         # Connect to the SQLite database (creates it if it doesn't exist)
         conn = sqlite3.connect(db_path)        
         # Save the DataFrame to the database, appending if the table exists
