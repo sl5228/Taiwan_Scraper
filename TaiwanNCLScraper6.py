@@ -166,11 +166,12 @@ def refine_search(driver, subject_term, language="CHI", start_year="1500", end_y
         raise
 
 def extract_info_books(book_rows):
-        # Initialize a list to store book information
-        books_data = []
-        
-        # Extract information for each book
-        for row in book_rows:
+    # Initialize a list to store book information
+    books_data = []
+    
+    # Extract information for each book
+    for row in book_rows:
+        try:
             # Extract title
             title_element = row.find_element(By.CSS_SELECTOR, "td.td1:nth-child(3) a.brieftit")
             title = title_element.text
@@ -186,7 +187,22 @@ def extract_info_books(book_rows):
             # Extract year of publication (handling JavaScript-rendered content)
             year_element = row.find_element(By.CSS_SELECTOR, "td.td1:nth-child(6)")
             year_script = year_element.get_attribute('innerHTML')
-            year = re.search(r'</script>\s*(\d{4})', year_script).group(1)
+            
+            # Print the first row's year script to debug
+            if books_data == []:  # If this is the first book
+                print(f"Sample year_script: {year_script[:100]}...")  # Print first 100 chars
+            
+            # Try different patterns for the year
+            year_match = re.search(r'</script>\s*(\d{4})', year_script)
+            if year_match:
+                year = year_match.group(1)
+            else:
+                # Try another pattern or just extract any 4 digits
+                alt_match = re.search(r'(\d{4})', year_script)
+                if alt_match:
+                    year = alt_match.group(1)
+                else:
+                    year = "Unknown"  # Default if no year found
                         
             # Extract call number (if available)
             call_number_element = row.find_element(By.CSS_SELECTOR, "td.td1:nth-child(7)")
@@ -200,15 +216,21 @@ def extract_info_books(book_rows):
                 'year': year,
                 'call_number': call_number,
             })
-        return(books_data)
+        except Exception as e:
+            print(f"Error extracting information from a book row: {str(e)}")
+            # Continue with the next row instead of failing completely
+            continue
+            
+    return books_data
 
-def scrape_multiple_subjects(subject_codes):
+def scrape_multiple_subjects(subject_codes, db_path):
     """
-    Function to iterate through multiple subject codes and perform a search for each.
-    User confirmation is required between each search.
+    Function to iterate through multiple subject codes, perform a search for each,
+    extract all book information, and save to a database.
     
     Args:
         subject_codes: List of subject codes to search for
+        db_path: Path to the SQLite database file
     """
     try:
         print("Initializing Chrome WebDriver...")
@@ -217,6 +239,10 @@ def scrape_multiple_subjects(subject_codes):
         driver = webdriver.Chrome()
         
         print("WebDriver initialized successfully")
+        
+        # Create the directory if it doesn't exist
+        import os
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
         
         # Loop through each subject code
         for i, subject_code in enumerate(subject_codes):
@@ -244,10 +270,63 @@ def scrape_multiple_subjects(subject_codes):
             else:
                 print(f"Pattern didn't match. Raw text: '{total_info}'")
                 tot_books = 0  # Default to 0 if we can't extract the number
-
-            # Total number of pages to scrape from
-            num_pages = math.ceil(tot_books/20)
-              
+            
+            # Calculate total number of pages (20 books per page)
+            num_pages = math.ceil(tot_books / 20)
+            print(f"Total pages to scrape: {num_pages}")
+            
+            # Initialize a master list to store all books across pages
+            all_books_data = []
+            
+            # Iterate through all pages
+            for page in range(0, num_pages):
+                print(f"Scraping page {page+1}/{num_pages} of category {subject_code}")
+                
+                # Wait for the book rows to load on the current page
+                wait = WebDriverWait(driver, 10)
+                book_rows = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "tr[valign='baseline']")))
+                
+                # Use predefined function to extract info from books on the current page
+                books_data = extract_info_books(book_rows)
+                
+                # Append current page's data to the master list
+                all_books_data.extend(books_data)
+                
+                # Sleep to avoid having problems with the website
+                time.sleep(randint(1, 5))
+                
+                # If it's not the last page, go to the next page
+                if page < num_pages - 1:
+                    try:
+                        next_button = wait.until(EC.element_to_be_clickable(
+                            (By.CSS_SELECTOR, "img[src$='f-next-page.gif'][alt='Next Page']")
+                        ))
+                        next_button.click()
+                        # Wait for the next page to load
+                        time.sleep(3)
+                    except Exception as e:
+                        print(f"Could not navigate to next page: {e}")
+                        break
+            
+            # Save books into a dataframe
+            books_df = pd.DataFrame(all_books_data)
+            
+            # Add subject term to the dataframe
+            books_df['subject'] = subject_code
+            
+            print(f"Extracted {len(books_df)} books for subject '{subject_code}'")
+            
+            # Connect to the SQLite database (creates it if it doesn't exist)
+            conn = sqlite3.connect(db_path)
+            
+            # Save the DataFrame to the database, appending if the table exists
+            books_df.to_sql('books', conn, if_exists='append', index=False)
+            
+            # Close the connection
+            conn.close()
+            
+            print(f"Successfully saved data for subject '{subject_code}' to database")
+            
             # If this is not the last subject, ask for confirmation before continuing
             if i < len(subject_codes) - 1:
                 user_input = input(f"\nPress Enter to continue to the next subject ({subject_codes[i+1]}) or type 'exit' to stop: ")
@@ -273,6 +352,9 @@ def scrape_multiple_subjects(subject_codes):
 
 # Call this function with a list of subject codes
 if __name__ == "__main__":
+    # Define the database path
+    db_path = "../scraped_data/ncl_subject_books.db"
+    
     # Define the list of Chinese keywords
     keywords = [
         "會計學",    # Accounting
@@ -333,7 +415,7 @@ if __name__ == "__main__":
         "木製品"     # Wood products
     ]
     
-    # Run the scraper with the subject list
-    scrape_multiple_subjects(keywords)
+    # Run the scraper with the subject list and database path
+    scrape_multiple_subjects(keywords, db_path)
 
 
