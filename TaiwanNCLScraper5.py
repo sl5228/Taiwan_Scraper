@@ -142,7 +142,7 @@ def refine_search(driver, subject_term, language="CHI", start_year="1500", end_y
             # This pattern matches the example HTML you provided
             result_link = driver.find_elements(By.XPATH, 
                 "//td[contains(@class, 'td2')]//a[contains(@href, 'set_number')]")
-            
+
             if result_link and len(result_link) > 0:
                 print("Yes - Found clickable element with result count")
                 
@@ -164,6 +164,44 @@ def refine_search(driver, subject_term, language="CHI", start_year="1500", end_y
     except Exception as e:
         print(f"Error during search refinement: {str(e)}")
         raise
+
+# Extract the information of books
+def extract_info_books(book_rows):
+        # Initialize a list to store book information
+        books_data = []
+        
+        # Extract information for each book
+        for row in book_rows:
+            # Extract title
+            title_element = row.find_element(By.CSS_SELECTOR, "td.td1:nth-child(3) a.brieftit")
+            title = title_element.text
+        
+            # Extract author
+            author_element = row.find_element(By.CSS_SELECTOR, "td.td1:nth-child(4)")
+            author = author_element.text
+        
+            # Extract publisher
+            publisher_element = row.find_element(By.CSS_SELECTOR, "td.td1:nth-child(5)")
+            publisher = publisher_element.text
+        
+            # Extract year of publication (handling JavaScript-rendered content)
+            year_element = row.find_element(By.CSS_SELECTOR, "td.td1:nth-child(6)")
+            year_script = year_element.get_attribute('innerHTML')
+            year = re.search(r'</script>\s*(\d{4})', year_script).group(1)
+                        
+            # Extract call number (if available)
+            call_number_element = row.find_element(By.CSS_SELECTOR, "td.td1:nth-child(7)")
+            call_number = call_number_element.text.strip() if call_number_element.text.strip() else None
+        
+            # Append extracted data to the books_data list
+            books_data.append({
+                'title': title,
+                'author': author,
+                'publisher': publisher,
+                'year': year,
+                'call_number': call_number,
+            })
+        return(books_data)
 
 def scrape_multiple_subjects(subject_codes):
     """
@@ -190,6 +228,19 @@ def scrape_multiple_subjects(subject_codes):
             
             # Refine the search with the current subject code
             refine_search(driver, subject_code, language="CHI", start_year="1500", end_year="2023")
+
+            # Wait for the page to load
+            wait = WebDriverWait(driver, 30)
+
+            # Extract the total number of books in the search
+            element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "td.text3[width='20%'][nowrap]")))
+            total_info = element.text
+            
+            # Look for the total number of books in the search based on pattern of the text       
+            tot_books = int(re.search(r'of (\d+) 筆', total_info))
+        
+            # Print total number of books
+            print(f"Total number of books in category {subject_code}: {tot_books}")
             
             # If this is not the last subject, ask for confirmation before continuing
             if i < len(subject_codes) - 1:
