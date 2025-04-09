@@ -165,7 +165,6 @@ def refine_search(driver, subject_term, language="CHI", start_year="1500", end_y
         print(f"Error during search refinement: {str(e)}")
         raise
 
-# Extract the information of books
 def extract_info_books(book_rows):
         # Initialize a list to store book information
         books_data = []
@@ -235,13 +234,17 @@ def scrape_multiple_subjects(subject_codes):
             # Extract the total number of books in the search
             element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "td.text3[width='20%'][nowrap]")))
             total_info = element.text
-            
-            # Look for the total number of books in the search based on pattern of the text       
-            tot_books = int(re.search(r'of (\d+) 筆', total_info))
-        
-            # Print total number of books
-            print(f"Total number of books in category {subject_code}: {tot_books}")
-            
+            print(f"Raw total info text: '{total_info}'")
+
+            # Look for the number after "Total"
+            match = re.search(r'Total\s+(\d+)', total_info)
+            if match:
+                tot_books = int(match.group(1))
+                print(f"Total number of books in category {subject_code}: {tot_books}")
+            else:
+                print(f"Pattern didn't match. Raw text: '{total_info}'")
+                tot_books = 0  # Default to 0 if we can't extract the number
+              
             # If this is not the last subject, ask for confirmation before continuing
             if i < len(subject_codes) - 1:
                 user_input = input(f"\nPress Enter to continue to the next subject ({subject_codes[i+1]}) or type 'exit' to stop: ")
