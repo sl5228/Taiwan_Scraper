@@ -6,7 +6,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
 import time
 import re
-import sqlite3
 from random import randint
 
 def navigate_to_advanced_search(driver):
@@ -205,57 +204,201 @@ def click_first_book_title(driver):
         print(f"Error clicking first book title: {str(e)}")
         return False
 
-def process_book_details(driver):
+def process_book_details(driver, subject_code):
     """
-    Function to process the book details page.
-    This is a placeholder for whatever processing you want to do on the book details page.
+    Function to extract specific information from the book details page.
     
     Args:
         driver: The Selenium WebDriver instance
+        subject_code: The subject code used for the search
     
     Returns:
-        None
+        dict: The extracted book details
     """
     try:
         # Wait for the page to load
         time.sleep(2)
+        wait = WebDriverWait(driver, 10)
         
         # Print the current URL
         current_url = driver.current_url
         print(f"Processing book details at URL: {current_url}")
         
-        # Add your processing logic here
-        # For example, extracting more detailed information about the book
+        # Initialize a dictionary to store the extracted information
+        book_info = {
+            'subject': subject_code,
+            'url': current_url,
+            'record_number': "missing",
+            'title': "missing",
+            'language': "missing",
+            'imprint': "missing"  # publication info
+        }
         
-        # Wait a bit to simulate processing time
-        time.sleep(2)
+        # Extract record number
+        try:
+            record_row = driver.find_element(By.XPATH, "//td[@class='td1' and @id='bold' and contains(text(), 'Record Number')]/following-sibling::td")
+            book_info['record_number'] = record_row.text.strip()
+            print(f"Record Number: {book_info['record_number']}")
+        except Exception as e:
+            print(f"Record number field not found, using 'missing'")
         
-        print("Book details processed successfully")
+        # Extract title
+        try:
+            title_row = driver.find_element(By.XPATH, "//td[@class='td1' and @id='bold' and contains(text(), 'Title')]/following-sibling::td")
+            # The title is in an anchor tag
+            title_link = title_row.find_element(By.TAG_NAME, "a")
+            book_info['title'] = title_link.text.strip()
+            print(f"Title: {book_info['title']}")
+        except Exception as e:
+            print(f"Title field not found, using 'missing'")
         
-        # Go back to the search results page
-        driver.back()
-        print("Navigated back to search results")
+        # Extract language
+        try:
+            language_row = driver.find_element(By.XPATH, "//td[@class='td1' and @id='bold' and contains(text(), 'Language')]/following-sibling::td")
+            book_info['language'] = language_row.text.strip()
+            print(f"Language: {book_info['language']}")
+        except Exception as e:
+            print(f"Language field not found, using 'missing'")
         
-        # Give time for the search results page to reload
-        time.sleep(3)
+        # Extract imprint (publication info)
+        try:
+            imprint_row = driver.find_element(By.XPATH, "//td[@class='td1' and @id='bold' and contains(text(), 'Imprint')]/following-sibling::td")
+            book_info['imprint'] = imprint_row.text.strip()
+            print(f"Imprint: {book_info['imprint']}")
+        except Exception as e:
+            print(f"Imprint field not found, using 'missing'")
+        
+        # Return the extracted information
+        print("Book details extracted successfully")
+        print(book_info)
+        
+        return book_info
         
     except Exception as e:
-        print(f"Error processing book details: {str(e)}")
-        # Try to navigate back to results if possible
-        try:
-            driver.back()
-            print("Attempted to navigate back after error")
-            time.sleep(3)
-        except:
-            print("Could not navigate back after error")
+        print(f"Error processing book details: {str(e)}")        
+        # Return a dictionary with default values
+        return {
+            'subject': subject_code,
+            'url': driver.current_url if 'driver' in locals() else "error",
+            'record_number': "missing",
+            'title': "missing",
+            'language': "missing",
+            'imprint': "missing"
+        }
 
-def explore_subjects_and_first_books(subject_codes):
+def has_next_book(driver):
+    """
+    Function to check if there is a "Next Record" button on the current book details page.
+    
+    Args:
+        driver: The Selenium WebDriver instance
+    
+    Returns:
+        bool: True if a "Next Record" button is found, False otherwise
+    """
+    try:
+        # Look for the "Next Record" button
+        next_button = driver.find_element(By.XPATH, "//img[@alt='Next Record']")
+        return True
+    except:
+        return False
+
+def navigate_to_next_book(driver):
+    """
+    Function to navigate to the next book by clicking the "Next Record" button.
+    
+    Args:
+        driver: The Selenium WebDriver instance
+    
+    Returns:
+        bool: True if successfully navigated to the next book, False otherwise
+    """
+    try:
+        # Find and click on the "Next Record" button
+        next_button = driver.find_element(By.XPATH, "//img[@alt='Next Record']")
+        # Get the parent <a> tag that contains the image
+        next_link = next_button.find_element(By.XPATH, "./..")
+        
+        # Click on the link
+        next_link.click()
+        print("Clicked on 'Next Record' button")
+        
+        # Wait for the next book details page to load
+        time.sleep(3)
+        
+        # Get the current URL after clicking
+        current_url = driver.current_url
+        print(f"Navigated to next book at URL: {current_url}")
+        
+        return True
+    except Exception as e:
+        print(f"Error navigating to next book: {str(e)}")
+        return False
+
+def process_all_books_for_subject(driver, subject_code):
+    """
+    Function to process all books for a specific subject.
+    This function starts from the search results page, clicks on the first book,
+    extracts its information, then navigates through all remaining books.
+    
+    Args:
+        driver: The Selenium WebDriver instance
+        subject_code: The subject code used for the search
+    
+    Returns:
+        list: List of dictionaries containing extracted book information
+    """
+    books_info = []
+    
+    # Click on the first book title to view its details
+    if click_first_book_title(driver):
+        # Process the first book
+        book_info = process_book_details(driver, subject_code)
+        if book_info:
+            books_info.append(book_info)
+            print(f"Added information for book 1 in subject '{subject_code}' to results")
+        
+        # Process all remaining books
+        book_count = 1
+        while has_next_book(driver):
+            # Navigate to the next book
+            if navigate_to_next_book(driver):
+                book_count += 1
+                # Process the current book
+                book_info = process_book_details(driver, subject_code)
+                if book_info:
+                    books_info.append(book_info)
+                    print(f"Added information for book {book_count} in subject '{subject_code}' to results")
+            else:
+                print(f"Failed to navigate to the next book after book {book_count}")
+                break
+        
+        print(f"Processed a total of {len(books_info)} books for subject '{subject_code}'")
+    else:
+        print(f"Could not click on the first book title for subject '{subject_code}'")
+    
+    # Navigate back to the main search page
+    try:
+        # Find and click on a link to go back to the main search
+        # This might need to be customized based on the website's navigation
+        driver.get("https://aleweb.ncl.edu.tw/F?func=file&file_name=find-b&CON_LNG=ENG")
+        print("Navigated back to the main search page")
+        time.sleep(2)
+    except Exception as e:
+        print(f"Error returning to main search page: {str(e)}")
+    
+    return books_info
+
+def explore_subjects_and_all_books(subject_codes):
     """
     Function to iterate through multiple subject codes, perform a search for each,
-    and click on the first book in the results for each subject.
+    and process all books in the results for each subject.
     
     Args:
         subject_codes: List of subject codes to search for
+    
+    Returns:
+        list: List of dictionaries containing extracted book information
     """
     try:
         print("Initializing Chrome WebDriver...")
@@ -264,6 +407,9 @@ def explore_subjects_and_first_books(subject_codes):
         driver = webdriver.Chrome()
         
         print("WebDriver initialized successfully")
+        
+        # Initialize a list to store all book information
+        all_book_info = []
         
         # Loop through each subject code
         for i, subject_code in enumerate(subject_codes):
@@ -298,12 +444,10 @@ def explore_subjects_and_first_books(subject_codes):
             
             # If books were found for this subject
             if tot_books > 0:
-                # Click on the first book title
-                if click_first_book_title(driver):
-                    # Process the book details page
-                    process_book_details(driver)
-                else:
-                    print(f"No book titles found for subject '{subject_code}'")
+                # Process all books for this subject
+                subject_books = process_all_books_for_subject(driver, subject_code)
+                all_book_info.extend(subject_books)
+                print(f"Added {len(subject_books)} books from subject '{subject_code}' to results")
             else:
                 print(f"No books found for subject '{subject_code}'")
             
@@ -315,13 +459,28 @@ def explore_subjects_and_first_books(subject_codes):
                 print(f"\nMoving to the next subject: {subject_codes[i+1]}")
             else:
                 print("\nAll subjects have been processed.")
-                
-        input("Press Enter to close the browser...")
+        
+        # Print the final results
+        print("\n\n===== EXTRACTED BOOK INFORMATION =====")
+        print(f"Total books extracted: {len(all_book_info)}")
+        for i, book in enumerate(all_book_info[:10]):  # Print first 10 books for preview
+            print(f"\nBook {i+1}:")
+            for key, value in book.items():
+                print(f"  {key}: {value}")
+        
+        if len(all_book_info) > 10:
+            print(f"\n... and {len(all_book_info) - 10} more books")
+        
+        # Give the user a chance to review results before closing the browser
+        input("\nPress Enter to close the browser...")
+        
+        return all_book_info
     
     except Exception as e:
         print(f"Error during exploration: {str(e)}")
         import traceback
         traceback.print_exc()
+        return []
     finally:
         # Close the driver if it was successfully initialized
         if 'driver' in locals():
@@ -393,4 +552,4 @@ if __name__ == "__main__":
     ]
     
     # Run the program with the subject list
-    explore_subjects_and_first_books(keywords)
+    book_results = explore_subjects_and_all_books(keywords)
