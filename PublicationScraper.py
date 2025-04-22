@@ -6,8 +6,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
 import time
 import re
-import pandas as pd
-import math
 import sqlite3
 from random import randint
 
@@ -41,7 +39,7 @@ def navigate_to_advanced_search(driver):
         raise
 
 
-def refine_search(driver, subject_term, language="CHI", start_year="1500", end_year="2023"):
+def refine_search(driver, subject_term, language="CHI", start_year="1950", end_year="1970"):
     """
     Function to refine the search on the advanced search page.
     
@@ -49,8 +47,8 @@ def refine_search(driver, subject_term, language="CHI", start_year="1500", end_y
         driver: The Selenium WebDriver instance
         subject_term: The subject term to search for
         language: The language to filter by (default: "CHI" for Chinese)
-        start_year: The starting year for publication date filter (default: "1500")
-        end_year: The ending year for publication date filter (default: "2023")
+        start_year: The starting year for publication date filter (default: "1950")
+        end_year: The ending year for publication date filter (default: "1970")
     
     Returns:
         None
@@ -165,72 +163,103 @@ def refine_search(driver, subject_term, language="CHI", start_year="1500", end_y
         print(f"Error during search refinement: {str(e)}")
         raise
 
-def extract_info_books(book_rows):
-    # Initialize a list to store book information
-    books_data = []
+def click_first_book_title(driver):
+    """
+    Function to click on the title of the first book in the search results.
     
-    # Extract information for each book
-    for row in book_rows:
-        try:
-            # Extract title
-            title_element = row.find_element(By.CSS_SELECTOR, "td.td1:nth-child(3) a.brieftit")
-            title = title_element.text
+    Args:
+        driver: The Selenium WebDriver instance
+    
+    Returns:
+        bool: True if a book title was found and clicked, False otherwise
+    """
+    try:
+        # Wait for the book rows to load
+        wait = WebDriverWait(driver, 10)
         
-            # Extract author
-            author_element = row.find_element(By.CSS_SELECTOR, "td.td1:nth-child(4)")
-            author = author_element.text
+        # Look for the first book title link using CSS selector
+        first_title_link = wait.until(EC.presence_of_element_located(
+            (By.CSS_SELECTOR, "td.td1 a.brieftit")
+        ))
         
-            # Extract publisher
-            publisher_element = row.find_element(By.CSS_SELECTOR, "td.td1:nth-child(5)")
-            publisher = publisher_element.text
+        # Get the title and URL for logging
+        title = first_title_link.text
+        url = first_title_link.get_attribute('href')
+        print(f"Found first book title: '{title}'")
+        print(f"URL: {url}")
         
-            # Extract year of publication (handling JavaScript-rendered content)
-            year_element = row.find_element(By.CSS_SELECTOR, "td.td1:nth-child(6)")
-            year_script = year_element.get_attribute('innerHTML')
-            
-            # Print the first row's year script to debug
-            if books_data == []:  # If this is the first book
-                print(f"Sample year_script: {year_script[:100]}...")  # Print first 100 chars
-            
-            # Try different patterns for the year
-            year_match = re.search(r'</script>\s*(\d{4})', year_script)
-            if year_match:
-                year = year_match.group(1)
-            else:
-                # Try another pattern or just extract any 4 digits
-                alt_match = re.search(r'(\d{4})', year_script)
-                if alt_match:
-                    year = alt_match.group(1)
-                else:
-                    year = "Unknown"  # Default if no year found
-                        
-            # Extract call number (if available)
-            call_number_element = row.find_element(By.CSS_SELECTOR, "td.td1:nth-child(7)")
-            call_number = call_number_element.text.strip() if call_number_element.text.strip() else None
+        # Click on the title link
+        first_title_link.click()
+        print("Clicked on the first book title")
         
-            # Append extracted data to the books_data list
-            books_data.append({
-                'title': title,
-                'author': author,
-                'publisher': publisher,
-                'year': year,
-                'call_number': call_number,
-            })
-        except Exception as e:
-            print(f"Error extracting information from a book row: {str(e)}")
-            # Continue with the next row instead of failing completely
-            continue
-            
-    return books_data
+        # Wait for the book details page to load
+        time.sleep(3)
+        
+        # Get the current URL after clicking
+        current_url = driver.current_url
+        print(f"Current URL after clicking: {current_url}")
+        
+        return True
+        
+    except Exception as e:
+        print(f"Error clicking first book title: {str(e)}")
+        return False
 
-def scrape_multiple_subjects(subject_codes, db_path):
+def process_book_details(driver):
+    """
+    Function to process the book details page.
+    This is a placeholder for whatever processing you want to do on the book details page.
+    
+    Args:
+        driver: The Selenium WebDriver instance
+    
+    Returns:
+        None
+    """
+    try:
+        # Wait for the page to load
+        time.sleep(2)
+        
+        # Print the current URL
+        current_url = driver.current_url
+        print(f"Processing book details at URL: {current_url}")
+        
+        # Extract the page title for verification
+        page_title = driver.title
+        print(f"Page title: {page_title}")
+        
+        # Add your processing logic here
+        # For example, extracting more detailed information about the book
+        
+        # Wait a bit to simulate processing time
+        time.sleep(2)
+        
+        print("Book details processed successfully")
+        
+        # Go back to the search results page
+        driver.back()
+        print("Navigated back to search results")
+        
+        # Give time for the search results page to reload
+        time.sleep(3)
+        
+    except Exception as e:
+        print(f"Error processing book details: {str(e)}")
+        # Try to navigate back to results if possible
+        try:
+            driver.back()
+            print("Attempted to navigate back after error")
+            time.sleep(3)
+        except:
+            print("Could not navigate back after error")
+
+def explore_subjects_and_first_books(subject_codes):
     """
     Function to iterate through multiple subject codes, perform a search for each,
-    extract all book information, and save to a database.
+    and click on the first book in the results for each subject.
     
     Args:
         subject_codes: List of subject codes to search for
-        db_path: Path to the SQLite database file
     """
     try:
         print("Initializing Chrome WebDriver...")
@@ -240,10 +269,6 @@ def scrape_multiple_subjects(subject_codes, db_path):
         
         print("WebDriver initialized successfully")
         
-        # Create the directory if it doesn't exist
-        import os
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
-        
         # Loop through each subject code
         for i, subject_code in enumerate(subject_codes):
             print(f"\nProcessing subject {i+1}/{len(subject_codes)}: {subject_code}")
@@ -252,80 +277,42 @@ def scrape_multiple_subjects(subject_codes, db_path):
             navigate_to_advanced_search(driver)
             
             # Refine the search with the current subject code
-            refine_search(driver, subject_code, language="CHI", start_year="1500", end_year="2023")
+            refine_search(driver, subject_code, language="CHI", start_year="1950", end_year="1970")
 
             # Wait for the page to load
             wait = WebDriverWait(driver, 30)
 
             # Extract the total number of books in the search
-            element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "td.text3[width='20%'][nowrap]")))
-            total_info = element.text
-            print(f"Raw total info text: '{total_info}'")
+            try:
+                element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "td.text3[width='20%'][nowrap]")))
+                total_info = element.text
+                print(f"Raw total info text: '{total_info}'")
 
-            # Look for the number after "Total"
-            match = re.search(r'Total\s+(\d+)', total_info)
-            if match:
-                tot_books = int(match.group(1))
-                print(f"Total number of books in category {subject_code}: {tot_books}")
+                # Look for the number after "Total"
+                match = re.search(r'Total\s+(\d+)', total_info)
+                if match:
+                    tot_books = int(match.group(1))
+                    print(f"Total number of books in category {subject_code}: {tot_books}")
+                else:
+                    print(f"Pattern didn't match. Raw text: '{total_info}'")
+                    tot_books = 0  # Default to 0 if we can't extract the number
+            except Exception as e:
+                print(f"Error extracting total book count: {str(e)}")
+                tot_books = 0
+            
+            # If books were found for this subject
+            if tot_books > 0:
+                # Click on the first book title
+                if click_first_book_title(driver):
+                    # Process the book details page
+                    process_book_details(driver)
+                else:
+                    print(f"No book titles found for subject '{subject_code}'")
             else:
-                print(f"Pattern didn't match. Raw text: '{total_info}'")
-                tot_books = 0  # Default to 0 if we can't extract the number
+                print(f"No books found for subject '{subject_code}'")
             
-            # Calculate total number of pages (20 books per page)
-            num_pages = math.ceil(tot_books / 20)
-            print(f"Total pages to scrape: {num_pages}")
-            
-            # Initialize a master list to store all books across pages
-            all_books_data = []
-            
-            # Iterate through all pages
-            for page in range(0, num_pages):
-                print(f"Scraping page {page+1}/{num_pages} of category {subject_code}")
-                
-                # Wait for the book rows to load on the current page
-                wait = WebDriverWait(driver, 10)
-                book_rows = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "tr[valign='baseline']")))
-                
-                # Use predefined function to extract info from books on the current page
-                books_data = extract_info_books(book_rows)
-                
-                # Append current page's data to the master list
-                all_books_data.extend(books_data)
-                
-                # Sleep to avoid having problems with the website
-                time.sleep(randint(1, 5))
-                
-                # If it's not the last page, go to the next page
-                if page < num_pages - 1:
-                    try:
-                        next_button = wait.until(EC.element_to_be_clickable(
-                            (By.CSS_SELECTOR, "img[src$='f-next-page.gif'][alt='Next Page']")
-                        ))
-                        next_button.click()
-                        # Wait for the next page to load
-                        time.sleep(3)
-                    except Exception as e:
-                        print(f"Could not navigate to next page: {e}")
-                        break
-            
-            # Save books into a dataframe
-            books_df = pd.DataFrame(all_books_data)
-            
-            # Add subject term to the dataframe
-            books_df['subject'] = subject_code
-            
-            print(f"Extracted {len(books_df)} books for subject '{subject_code}'")
-            
-            # Connect to the SQLite database (creates it if it doesn't exist)
-            conn = sqlite3.connect(db_path)
-            
-            # Save the DataFrame to the database, appending if the table exists
-            books_df.to_sql('books', conn, if_exists='append', index=False)
-            
-            # Close the connection
-            conn.close()
-            
-            print(f"Successfully saved data for subject '{subject_code}' to database")
+            # Sleep to avoid having problems with the website
+            time.sleep(randint(1, 3))
             
             # Let user know we're moving to the next subject automatically
             if i < len(subject_codes) - 1:
@@ -336,7 +323,7 @@ def scrape_multiple_subjects(subject_codes, db_path):
         input("Press Enter to close the browser...")
     
     except Exception as e:
-        print(f"Error during subject scraping: {str(e)}")
+        print(f"Error during exploration: {str(e)}")
         import traceback
         traceback.print_exc()
     finally:
@@ -349,24 +336,65 @@ def scrape_multiple_subjects(subject_codes, db_path):
 
 # Call this function with a list of subject codes
 if __name__ == "__main__":
-    # Define the database path
-    db_path = "../scraped_data/ncl_subject_books.db"
-    
     # Define the list of Chinese keywords
     keywords = [
-        "冶金",   #Metallurgy
-        "紡織品", #Textiles
-        "育種",   #Breeding
-        "應用作", #Applied Operations
-        "釣魚",   #Fishing
-        "農學",   #Agronomy
-        "硬體",   #Hardware
-        "公共關係", #Public Relations
-        "藥理學",  #Pharmacology
-        "林業",   #Forestry
-        "製造業",  #Manufacturing
+        "會計學",    # Accounting
+        "農業",      # Agriculture
+        "農學",      # Agronomy
+        "畜牧業",    # Animal husbandry
+        "應用作",    # Applied works
+        "應用物理學", # Applied physics
+        "水生結構",  # Aquatic structures
+        "建築",      # Architecture/Construction
+        "育種",      # Breeding
+        "商業材料",  # Business materials
+        "商業組織",  # Business organizations
+        "通信",      # Communication
+        "建設",      # Construction
+        "彈性計",    # Elastic planning
+        "工程",      # Engineering
+        "炸藥",      # Explosives
+        "釣魚",      # Fishing
+        "林業",      # Forestry
+        "鍛造作品",  # Forged works
+        "燃料",      # Fuel
+        "毛皮製品",  # Fur products
+        "提供",     # Furnishing 
+        "傢俱",     # Furnishings
+        "硬體",      # Hardware
+        "家政學",    # Home economics
+        "家庭工作坊", # Home workshop
+        "園藝",      # Horticulture
+        "家用電器",  # Household appliances
+        "工業",      # Industry
+        "鐵",        # Iron
+        "皮具",      # Leather goods
+        "皮革加工",  # Leather processing
+        "木材加工",  # Wood processing
+        "管理",      # Management
+        "製造",      # Manufacturing
+        "製造業",    # Manufacturing industry
+        "冶金",      # Metallurgy
+        "五金",      # Hardware/Metal products
+        "金工",      # Metalwork
+        "軍事",      # Military
+        "採礦",      # Mining
+        "專利",      # Patents
+        "藥理學",    # Pharmacology
+        "種植園作物", # Plantation crops
+        "精密儀器",  # Precision instruments
+        "乳製品加工", # Dairy processing
+        "公共關係",  # Public relations
+        "鐵路",      # Railways
+        "屋頂覆蓋物", # Roofing materials
+        "鋼",        # Steel
+        "科技",      # Technology
+        "紡織品",    # Textiles
+        "交通管制",  # Traffic control
+        "運輸",      # Transportation
+        "水結構",    # Water structures
+        "木製品"     # Wood products
     ]
-    # Run the scraper with the subject list and database path
-    scrape_multiple_subjects(keywords, db_path)
-
-
+    
+    # Run the program with the subject list
+    explore_subjects_and_first_books(keywords)

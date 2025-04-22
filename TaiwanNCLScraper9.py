@@ -172,9 +172,11 @@ def extract_info_books(book_rows):
     # Extract information for each book
     for row in book_rows:
         try:
-            # Extract title
+            # Extract title and URL
             title_element = row.find_element(By.CSS_SELECTOR, "td.td1:nth-child(3) a.brieftit")
             title = title_element.text
+            # Extract the URL from the href attribute
+            url = title_element.get_attribute('href')
         
             # Extract author
             author_element = row.find_element(By.CSS_SELECTOR, "td.td1:nth-child(4)")
@@ -211,6 +213,7 @@ def extract_info_books(book_rows):
             # Append extracted data to the books_data list
             books_data.append({
                 'title': title,
+                'url': url,  # Added the URL to the data dictionary
                 'author': author,
                 'publisher': publisher,
                 'year': year,
@@ -243,6 +246,16 @@ def scrape_multiple_subjects(subject_codes, db_path):
         # Create the directory if it doesn't exist
         import os
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        
+        # Check if the database exists and create a new one if needed
+        db_exists = os.path.exists(db_path)
+        if db_exists:
+            print(f"Database already exists at {db_path}")
+            # Rename the existing database to back it up
+            backup_path = db_path + ".backup"
+            os.rename(db_path, backup_path)
+            print(f"Renamed existing database to {backup_path}")
+            print(f"Creating a new database at {db_path}")
         
         # Loop through each subject code
         for i, subject_code in enumerate(subject_codes):
@@ -354,17 +367,62 @@ if __name__ == "__main__":
     
     # Define the list of Chinese keywords
     keywords = [
-        "冶金",   #Metallurgy
-        "紡織品", #Textiles
-        "育種",   #Breeding
-        "應用作", #Applied Operations
-        "釣魚",   #Fishing
-        "農學",   #Agronomy
-        "硬體",   #Hardware
-        "公共關係", #Public Relations
-        "藥理學",  #Pharmacology
-        "林業",   #Forestry
-        "製造業",  #Manufacturing
+        "會計學",    # Accounting
+        "農業",      # Agriculture
+        "農學",      # Agronomy
+        "畜牧業",    # Animal husbandry
+        "應用作",    # Applied works
+        "應用物理學", # Applied physics
+        "水生結構",  # Aquatic structures
+        "建築",      # Architecture/Construction
+        "育種",      # Breeding
+        "商業材料",  # Business materials
+        "商業組織",  # Business organizations
+        "通信",      # Communication
+        "建設",      # Construction
+        "彈性計",    # Elastic planning
+        "工程",      # Engineering
+        "炸藥",      # Explosives
+        "釣魚",      # Fishing
+        "林業",      # Forestry
+        "鍛造作品",  # Forged works
+        "燃料",      # Fuel
+        "毛皮製品",  # Fur products
+        "提供",     # Furnishing 
+        "傢俱",     # Furnishings
+        "硬體",      # Hardware
+        "家政學",    # Home economics
+        "家庭工作坊", # Home workshop
+        "園藝",      # Horticulture
+        "家用電器",  # Household appliances
+        "工業",      # Industry
+        "鐵",        # Iron
+        "皮具",      # Leather goods
+        "皮革加工",  # Leather processing
+        "木材加工",  # Wood processing
+        "管理",      # Management
+        "製造",      # Manufacturing
+        "製造業",    # Manufacturing industry
+        "冶金",      # Metallurgy
+        "五金",      # Hardware/Metal products
+        "金工",      # Metalwork
+        "軍事",      # Military
+        "採礦",      # Mining
+        "專利",      # Patents
+        "藥理學",    # Pharmacology
+        "種植園作物", # Plantation crops
+        "精密儀器",  # Precision instruments
+        "乳製品加工", # Dairy processing
+        "公共關係",  # Public relations
+        "鐵路",      # Railways
+        "屋頂覆蓋物", # Roofing materials
+        "鋼",        # Steel
+        "科技",      # Technology
+        "紡織品",    # Textiles
+        "交通管制",  # Traffic control
+        "運輸",      # Transportation
+        "水結構",    # Water structures
+        "木製品"     # Wood products
     ]
     # Run the scraper with the subject list and database path
     scrape_multiple_subjects(keywords, db_path)
