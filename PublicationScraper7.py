@@ -235,7 +235,8 @@ def process_book_details(driver, subject_code):
             'record_number': "missing",
             'title': "missing",
             'language': "missing",
-            'imprint': "missing"  # publication info
+            'imprint': "missing",  # publication info
+            'publication': "missing"  # NEW FIELD: publication information
         }
         
         # Extract record number
@@ -276,6 +277,33 @@ def process_book_details(driver, subject_code):
             # print(f"Imprint field not found, using 'missing'")
             pass
         
+        # Extract publication information
+        try:
+            # Try to find the "Publication" field first
+            publication_row = driver.find_element(By.XPATH, "//td[@class='td1' and @id='bold' and contains(text(), 'Publication')]/following-sibling::td")
+            book_info['publication'] = publication_row.text.strip()
+            # print(f"Publication: {book_info['publication']}")
+        except Exception as e:
+            # print(f"Publication field not found, trying alternative selectors...")
+            # Try alternative selectors in case the field name is different
+            try:
+                # Try "Publish" or "Published" as field names
+                for field_text in ['Publish', 'Published', 'Publication date', 'Publish date']:
+                    try:
+                        pub_row = driver.find_element(By.XPATH, f"//td[@class='td1' and @id='bold' and contains(text(), '{field_text}')]/following-sibling::td")
+                        book_info['publication'] = pub_row.text.strip()
+                        # print(f"Found publication info with field name '{field_text}': {book_info['publication']}")
+                        break
+                    except:
+                        continue
+                else:
+                    # If none of the alternative field names worked, keep as "missing"
+                    # print(f"Publication field not found with any alternative selector, using 'missing'")
+                    pass
+            except Exception as inner_e:
+                # print(f"Error in alternative publication extraction: {str(inner_e)}")
+                pass
+        
         # Return the extracted information
         # print("Book details extracted successfully")
         # print(book_info)
@@ -291,7 +319,8 @@ def process_book_details(driver, subject_code):
             'record_number': "missing",
             'title': "missing",
             'language': "missing",
-            'imprint': "missing"
+            'imprint': "missing",
+            'publication': "missing"  # NEW FIELD in error case too
         }
 
 def has_next_book(driver):
@@ -420,11 +449,12 @@ def explore_subjects_and_all_books(subject_codes, db_path):
         # Create the directory if it doesn't exist
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
         
-        # Check if the database exists - if it does, we'll append to it
+        # Always delete existing database file to start fresh
         if os.path.exists(db_path):
-            print(f"Database exists at {db_path}, will append new data")
-        else:
-            print(f"Creating a new database at {db_path}")
+            os.remove(db_path)
+            print(f"Deleted existing database at {db_path}")
+        
+        print(f"Creating a new database at {db_path}")
         
         # Initialize a list to store all book information
         all_book_info = []
@@ -500,11 +530,18 @@ def explore_subjects_and_all_books(subject_codes, db_path):
         print("\n\n===== EXTRACTED BOOK INFORMATION =====")
         print(f"Total books extracted and saved to database: {len(all_book_info)}")
         
-        # Print a sample of the first 10 books
+        # Print a sample of the first 10 books with updated field display
         for i, book in enumerate(all_book_info[:10]):  # Print first 10 books for preview
             print(f"\nBook {i+1}:")
+            # Updated to ensure 'publication' field is shown
+            field_order = ['subject', 'url', 'record_number', 'title', 'language', 'imprint', 'publication']
+            for key in field_order:
+                if key in book:
+                    print(f"  {key}: {book[key]}")
+            # Print any other fields that might exist
             for key, value in book.items():
-                print(f"  {key}: {value}")
+                if key not in field_order:
+                    print(f"  {key}: {value}")
         
         if len(all_book_info) > 10:
             print(f"\n... and {len(all_book_info) - 10} more books saved to database")
@@ -534,6 +571,35 @@ if __name__ == "__main__":
     
     # Define the list of Chinese keywords
     keywords = [
+        "會計學",    # Accounting
+        "農業",      # Agriculture
+        "農學",      # Agronomy
+        "畜牧業",    # Animal husbandry
+        "應用作",    # Applied works
+        "應用物理學", # Applied physics
+        "水生結構",  # Aquatic structures
+        "建築",      # Architecture/Construction
+        "育種",      # Breeding
+        "商業材料",  # Business materials
+        "商業組織",  # Business organizations
+        "通信",      # Communication
+        "建設",      # Construction
+        "彈性計",    # Elastic planning
+        "工程",      # Engineering
+        "炸藥",      # Explosives
+        "釣魚",      # Fishing
+        "林業",      # Forestry
+        "鍛造作品",  # Forged works
+        "燃料",      # Fuel
+        "毛皮製品",  # Fur products
+        "提供",     # Furnishing 
+        "傢俱",     # Furnishings
+        "硬體",      # Hardware
+        "家政學",    # Home economics
+        "家庭工作坊", # Home workshop
+        "園藝",      # Horticulture
+        "家用電器",  # Household appliances
+        "工業",      # Industry
         "鐵",        # Iron
         "皮具",      # Leather goods
         "皮革加工",  # Leather processing
