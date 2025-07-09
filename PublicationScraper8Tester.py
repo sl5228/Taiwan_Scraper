@@ -234,6 +234,8 @@ def process_book_details(driver, subject_code):
             'url': current_url,
             'record_number': "missing",
             'title': "missing",
+            'title_cleaned': "missing",  # NEW FIELD: cleaned title
+            'author_cleaned': "missing",  # NEW FIELD: cleaned author
             'language': "missing",
             'imprint': "missing",  # publication info
             'publication': "missing"  # NEW FIELD: publication information
@@ -255,6 +257,22 @@ def process_book_details(driver, subject_code):
             title_link = title_row.find_element(By.TAG_NAME, "a")
             book_info['title'] = title_link.text.strip()
             # print(f"Title: {book_info['title']}")
+            
+            # Split title and author
+            title_text = book_info['title']
+            if title_text != "missing" and "/" in title_text:
+                # Split by "/" and take the first part as title, second as author
+                parts = title_text.split("/", 1)  # Split only on first "/" to handle titles with multiple "/"
+                book_info['title_cleaned'] = parts[0].strip()
+                book_info['author_cleaned'] = parts[1].strip()
+            elif title_text != "missing":
+                # If no "/" found, assume entire text is the title
+                book_info['title_cleaned'] = title_text
+                book_info['author_cleaned'] = "missing"
+            
+            # print(f"Title Cleaned: {book_info['title_cleaned']}")
+            # print(f"Author Cleaned: {book_info['author_cleaned']}")
+            
         except Exception as e:
             # print(f"Title field not found, using 'missing'")
             pass
@@ -318,6 +336,8 @@ def process_book_details(driver, subject_code):
             'url': driver.current_url if 'driver' in locals() else "error",
             'record_number': "missing",
             'title': "missing",
+            'title_cleaned': "missing",  # NEW FIELD in error case too
+            'author_cleaned': "missing",  # NEW FIELD in error case too
             'language': "missing",
             'imprint': "missing",
             'publication': "missing"  # NEW FIELD in error case too

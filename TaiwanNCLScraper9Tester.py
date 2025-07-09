@@ -383,11 +383,17 @@ if __name__ == "__main__":
     
     # Define the list of Chinese keywords
     keywords = [
-        "畜牧業",    # Animal husbandry
-        "應用物理學", # Applied physics
-        "燃料",      # Fuel
-        "採礦",      # Mining
-        "農業",      # Agriculture
+        "冶金",   #Metallurgy
+        "紡織品", #Textiles
+        "育種",   #Breeding
+        "應用作", #Applied Operations
+        "釣魚",   #Fishing
+        "農學",   #Agronomy
+        "硬體",   #Hardware
+        "公共關係", #Public Relations
+        "藥理學",  #Pharmacology
+        "林業",   #Forestry
+        "製造業",  #Manufacturing
     ]
     # Run the scraper with the subject list and database path
     scrape_multiple_subjects(keywords, db_path)
