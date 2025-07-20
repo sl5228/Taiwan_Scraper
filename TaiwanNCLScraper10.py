@@ -42,7 +42,7 @@ def navigate_to_advanced_search(driver):
         raise
 
 
-def refine_search(driver, subject_term, language="CHI", start_year="1950", end_year="2023"):
+def refine_search(driver, subject_term, language="CHI", start_year="1950", end_year="1970"):
     """
     Function to refine the search on the advanced search page.
     
@@ -51,7 +51,7 @@ def refine_search(driver, subject_term, language="CHI", start_year="1950", end_y
         subject_term: The subject term to search for
         language: The language to filter by (default: "CHI" for Chinese)
         start_year: The starting year for publication date filter (default: "1950")
-        end_year: The ending year for publication date filter (default: "2023")
+        end_year: The ending year for publication date filter (default: "1970")
     
     Returns:
         bool: True if search results were found, False otherwise
@@ -234,10 +234,49 @@ def extract_info_books(book_rows):
             
     return books_data
 
+def save_books_to_db(books_data, subject_code, db_path):
+    """
+    Function to save books data to the database.
+    
+    Args:
+        books_data: List of dictionaries containing book information
+        subject_code: The subject code being processed
+        db_path: Path to the SQLite database file
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        if not books_data:
+            print("No book data to save")
+            return False
+            
+        # Convert to DataFrame
+        books_df = pd.DataFrame(books_data)
+        
+        # Add subject term to the dataframe
+        books_df['subject'] = subject_code
+        
+        # Connect to the SQLite database (creates it if it doesn't exist)
+        conn = sqlite3.connect(db_path)
+        
+        # Save the DataFrame to the database, appending if the table exists
+        books_df.to_sql('books', conn, if_exists='append', index=False)
+        
+        # Close the connection
+        conn.close()
+        
+        print(f"Successfully saved {len(books_data)} books to database")
+        return True
+        
+    except Exception as e:
+        print(f"Error saving books to database: {str(e)}")
+        return False
+
 def scrape_multiple_subjects(subject_codes, db_path):
     """
     Function to iterate through multiple subject codes, perform a search for each,
-    extract all book information, and save to a database.
+    extract all book information, and save to a database after each page.
     
     Args:
         subject_codes: List of subject codes to search for
@@ -269,7 +308,7 @@ def scrape_multiple_subjects(subject_codes, db_path):
             
             # Refine the search with the current subject code
             # Now returns a Boolean indicating if search results were found
-            results_found = refine_search(driver, subject_code, language="CHI", start_year="1950", end_year="2023")
+            results_found = refine_search(driver, subject_code, language="CHI", start_year="1950", end_year="1970")
             
             # Only proceed if search results were found
             if results_found:
@@ -295,8 +334,8 @@ def scrape_multiple_subjects(subject_codes, db_path):
                     num_pages = math.ceil(tot_books / 20)
                     print(f"Total pages to scrape: {num_pages}")
                     
-                    # Initialize a master list to store all books across pages
-                    all_books_data = []
+                    # Keep track of total books processed for this subject
+                    total_books_processed = 0
                     
                     # Iterate through all pages
                     for page in range(0, num_pages):
@@ -309,8 +348,16 @@ def scrape_multiple_subjects(subject_codes, db_path):
                         # Use predefined function to extract info from books on the current page
                         books_data = extract_info_books(book_rows)
                         
-                        # Append current page's data to the master list
-                        all_books_data.extend(books_data)
+                        # Save current page's data to the database immediately
+                        if books_data:
+                            success = save_books_to_db(books_data, subject_code, db_path)
+                            if success:
+                                total_books_processed += len(books_data)
+                                print(f"Page {page+1} completed. Books saved: {len(books_data)} (Total for {subject_code}: {total_books_processed})")
+                            else:
+                                print(f"Failed to save page {page+1} data to database")
+                        else:
+                            print(f"No books found on page {page+1}")
                         
                         # Sleep to avoid having problems with the website
                         time.sleep(randint(1, 5))
@@ -328,27 +375,7 @@ def scrape_multiple_subjects(subject_codes, db_path):
                                 print(f"Could not navigate to next page: {e}")
                                 break
                     
-                    # Save books into a dataframe if any were found
-                    if all_books_data:
-                        books_df = pd.DataFrame(all_books_data)
-                        
-                        # Add subject term to the dataframe
-                        books_df['subject'] = subject_code
-                        
-                        print(f"Extracted {len(books_df)} books for subject '{subject_code}'")
-                        
-                        # Connect to the SQLite database (creates it if it doesn't exist)
-                        conn = sqlite3.connect(db_path)
-                        
-                        # Save the DataFrame to the database, appending if the table exists
-                        books_df.to_sql('books', conn, if_exists='append', index=False)
-                        
-                        # Close the connection
-                        conn.close()
-                        
-                        print(f"Successfully saved data for subject '{subject_code}' to database")
-                    else:
-                        print(f"No book data was extracted for subject '{subject_code}'")
+                    print(f"Completed processing subject '{subject_code}'. Total books processed: {total_books_processed}")
                 
                 except Exception as e:
                     print(f"Error processing search results for subject '{subject_code}': {str(e)}")
@@ -387,19 +414,18 @@ if __name__ == "__main__":
         "農業",      # Agriculture
         "農學",      # Agronomy
         "畜牧業",    # Animal husbandry
-        "應用作",    # Applied Operations
+        "應用作",    # Applied works
         "應用物理學", # Applied physics
         "水生結構",  # Aquatic structures
-        "建築",      # Architecture
+        "建築",      # Architecture/Construction
         "育種",      # Breeding
         "商業材料",  # Business materials
         "商業組織",  # Business organizations
         "通信",      # Communication
         "建設",      # Construction
-        "彈性計",    # Elastometers
+        "彈性計",    # Elastic planning
         "工程",      # Engineering
         "炸藥",      # Explosives
-        "農業",    # Farming
         "釣魚",      # Fishing
         "林業",      # Forestry
         "鍛造作品",  # Forged works
@@ -415,7 +441,8 @@ if __name__ == "__main__":
         "工業",      # Industry
         "鐵",        # Iron
         "皮具",      # Leather goods
-        "木材加工",  # Lumber processing
+        "皮革加工",  # Leather processing
+        "木材加工",  # Wood processing
         "管理",      # Management
         "製造",      # Manufacturing
         "製造業",    # Manufacturing industry
@@ -426,17 +453,19 @@ if __name__ == "__main__":
         "採礦",      # Mining
         "專利",      # Patents
         "藥理學",    # Pharmacology
+        "種植園作物", # Plantation crops
         "精密儀器",  # Precision instruments
+        "乳製品加工", # Dairy processing
         "公共關係",  # Public relations
         "鐵路",      # Railways
         "屋頂覆蓋物", # Roofing materials
         "鋼",        # Steel
         "科技",      # Technology
         "紡織品",    # Textiles
-        #"交通管制",  # Traffic control
+        "交通管制",  # Traffic control
         "運輸",      # Transportation
         "水結構",    # Water structures
-       # "木製品"     # Wood products
+        "木製品"     # Wood products
     ]
     # Run the scraper with the subject list and database path
     scrape_multiple_subjects(keywords, db_path)
