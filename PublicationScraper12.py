@@ -10,6 +10,128 @@ from random import randint
 import pandas as pd
 import sqlite3
 import os
+import json
+import traceback
+from selenium.common.exceptions import WebDriverException, TimeoutException
+
+# State management for crash recovery
+STATE_FILE = "../scraped_data/scraping_state.json"
+
+def save_state(subject_index, current_subject, book_index=0, total_books=0, current_url=""):
+    """
+    Save the current scraping state to a file for crash recovery.
+    
+    Args:
+        subject_index: Current subject index being processed
+        current_subject: Current subject code being processed
+        book_index: Current book index within the subject (0-based)
+        total_books: Total books for current subject
+        current_url: Current URL being processed
+    """
+    try:
+        # Create the directory if it doesn't exist
+        os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
+        
+        state = {
+            "subject_index": subject_index,
+            "current_subject": current_subject,
+            "book_index": book_index,
+            "total_books": total_books,
+            "current_url": current_url,
+            "timestamp": time.time()
+        }
+        
+        with open(STATE_FILE, 'w') as f:
+            json.dump(state, f, indent=2)
+        
+        print(f"State saved: Subject {subject_index+1}, Book {book_index+1}/{total_books}")
+        
+    except Exception as e:
+        print(f"Warning: Could not save state: {str(e)}")
+
+def load_state():
+    """
+    Load the previous scraping state from file.
+    
+    Returns:
+        dict: State dictionary or None if no valid state found
+    """
+    try:
+        if os.path.exists(STATE_FILE):
+            with open(STATE_FILE, 'r') as f:
+                state = json.load(f)
+            print(f"Found previous state: Subject {state['subject_index']+1}, Book {state['book_index']+1}/{state['total_books']}")
+            return state
+        return None
+    except Exception as e:
+        print(f"Could not load previous state: {str(e)}")
+        return None
+
+def clear_state():
+    """Clear the state file after successful completion."""
+    try:
+        if os.path.exists(STATE_FILE):
+            os.remove(STATE_FILE)
+            print("State file cleared")
+    except Exception as e:
+        print(f"Warning: Could not clear state file: {str(e)}")
+
+def initialize_driver():
+    """Initialize a new Chrome WebDriver with robust options."""
+    try:
+        options = webdriver.ChromeOptions()
+        options.add_argument('--disable-blink-features=AutomationControlled')
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option('useAutomationExtension', False)
+        
+        driver = webdriver.Chrome(options=options)
+        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        
+        print("Chrome WebDriver initialized successfully")
+        return driver
+    except Exception as e:
+        print(f"Error initializing WebDriver: {str(e)}")
+        raise
+
+def safe_driver_operation(func, driver, *args, max_retries=3, **kwargs):
+    """
+    Safely execute a driver operation with crash recovery.
+    
+    Args:
+        func: Function to execute
+        driver: WebDriver instance (will be recreated if needed)
+        max_retries: Maximum number of retries
+        *args, **kwargs: Arguments to pass to func
+    
+    Returns:
+        Tuple: (result, updated_driver)
+    """
+    for attempt in range(max_retries):
+        try:
+            result = func(driver, *args, **kwargs)
+            return result, driver
+        except (WebDriverException, TimeoutException) as e:
+            print(f"WebDriver error on attempt {attempt + 1}: {str(e)}")
+            
+            if attempt < max_retries - 1:
+                print("Attempting to recover...")
+                try:
+                    driver.quit()
+                except:
+                    pass
+                
+                # Wait before retrying
+                time.sleep(5)
+                driver = initialize_driver()
+                print("WebDriver reinitialized")
+            else:
+                print(f"Failed after {max_retries} attempts")
+                raise
+        except Exception as e:
+            print(f"Non-WebDriver error: {str(e)}")
+            raise
+    
+    return None, driver
 
 def save_book_to_database(book_info, db_path):
     """
@@ -70,7 +192,6 @@ def navigate_to_advanced_search(driver):
     except Exception as e:
         print(f"Error navigating to advanced search page: {str(e)}")
         raise
-
 
 def refine_search(driver, subject_term, language="CHI", start_year="1950", end_year="2023"):
     """
@@ -241,6 +362,40 @@ def click_first_book_title(driver):
         
     except Exception as e:
         print(f"Error clicking first book title: {str(e)}")
+        return False
+
+def navigate_to_specific_book(driver, book_index, total_books):
+    """
+    Navigate to a specific book by index in the search results.
+    
+    Args:
+        driver: The Selenium WebDriver instance
+        book_index: 0-based index of the book to navigate to
+        total_books: Total number of books available
+    
+    Returns:
+        bool: True if successfully navigated to the book, False otherwise
+    """
+    try:
+        if book_index == 0:
+            # For the first book, just click on the first title
+            return click_first_book_title(driver)
+        else:
+            # For subsequent books, we need to navigate step by step
+            # First, click on the first book
+            if not click_first_book_title(driver):
+                return False
+            
+            # Then navigate through books until we reach the target index
+            current_index = 0
+            while current_index < book_index and has_next_book(driver):
+                if not navigate_to_next_book(driver):
+                    return False
+                current_index += 1
+            
+            return current_index == book_index
+    except Exception as e:
+        print(f"Error navigating to book {book_index}: {str(e)}")
         return False
 
 def process_book_details(driver, subject_code, db_path):
@@ -436,174 +591,219 @@ def navigate_to_next_book(driver):
         print(f"Error navigating to next book: {str(e)}")
         return False
 
-def process_all_books_for_subject(driver, subject_code, total_books, db_path):
+def process_all_books_for_subject(driver, subject_code, total_books, db_path, resume_from_book=0):
     """
-    Function to process all books for a specific subject.
-    If there's only one book, the website automatically shows the book details page.
-    If there are multiple books, we need to click on the first book title to view its details,
-    then navigate through all remaining books.
+    Function to process all books for a specific subject with crash recovery support.
     
     Args:
         driver: The Selenium WebDriver instance
         subject_code: The subject code used for the search
         total_books: Total number of books found for this subject
         db_path: Path to the SQLite database file
+        resume_from_book: Book index to resume from (0-based)
     
     Returns:
         list: List of dictionaries containing extracted book information
     """
     books_info = []
     
-    # If there's only one book, the website automatically shows the book details page
-    if total_books == 1:
-        print(f"Only 1 book found for subject '{subject_code}' - website automatically shows book details")
-        # Process the book details directly (no need to click on a book title)
-        book_info = process_book_details(driver, subject_code, db_path)
-        if book_info:
-            books_info.append(book_info)
-            print(f"Added information for the single book in subject '{subject_code}' to results")
-        print(f"Processing complete for subject '{subject_code}'")
-    else:
-        # Multiple books - need to click on the first book title to view its details
-        if click_first_book_title(driver):
-            # Process the first book
-            book_info = process_book_details(driver, subject_code, db_path)
-            if book_info:
-                books_info.append(book_info)
-                print(f"Added information for book 1 in subject '{subject_code}' to results")
+    try:
+        # If there's only one book, the website automatically shows the book details page
+        if total_books == 1:
+            print(f"Only 1 book found for subject '{subject_code}' - website automatically shows book details")
+            if resume_from_book == 0:  # Only process if we haven't processed it yet
+                # Save state before processing
+                save_state(0, subject_code, 0, total_books, driver.current_url)
+                
+                # Process the book details directly
+                book_info = process_book_details(driver, subject_code, db_path)
+                if book_info:
+                    books_info.append(book_info)
+                    print(f"Added information for the single book in subject '{subject_code}' to results")
+            print(f"Processing complete for subject '{subject_code}'")
+        else:
+            # Multiple books - need to navigate appropriately
+            if resume_from_book == 0:
+                # Starting fresh - click on the first book title
+                if not click_first_book_title(driver):
+                    print(f"Could not click on the first book title for subject '{subject_code}'")
+                    return books_info
+            else:
+                # Resuming - navigate to the specific book
+                print(f"Resuming from book {resume_from_book + 1}/{total_books}")
+                if not navigate_to_specific_book(driver, resume_from_book, total_books):
+                    print(f"Could not navigate to book {resume_from_book + 1} for subject '{subject_code}'")
+                    return books_info
             
-            # Process all remaining books
-            book_count = 1
-            while has_next_book(driver) and book_count < total_books:
-                # Navigate to the next book
-                if navigate_to_next_book(driver):
-                    book_count += 1
-                    # Process the current book
-                    book_info = process_book_details(driver, subject_code, db_path)
-                    if book_info:
-                        books_info.append(book_info)
-                        print(f"Added information for book {book_count} in subject '{subject_code}' to results")
-                else:
-                    print(f"Failed to navigate to the next book after book {book_count}")
-                    break
+            # Process books starting from resume_from_book
+            for book_index in range(resume_from_book, total_books):
+                # Save state before processing each book
+                save_state(0, subject_code, book_index, total_books, driver.current_url)
+                
+                print(f"Processing book {book_index + 1}/{total_books} for subject '{subject_code}'")
+                
+                # Process the current book
+                book_info, driver = safe_driver_operation(process_book_details, driver, subject_code, db_path)
+                if book_info:
+                    books_info.append(book_info)
+                    print(f"Added information for book {book_index + 1} in subject '{subject_code}' to results")
+                
+                # If this is not the last book, navigate to the next one
+                if book_index < total_books - 1:
+                    if has_next_book(driver):
+                        success, driver = safe_driver_operation(navigate_to_next_book, driver)
+                        if not success:
+                            print(f"Failed to navigate to next book after book {book_index + 1}")
+                            break
+                    else:
+                        print(f"No 'Next Record' button found after book {book_index + 1}")
+                        break
             
             print(f"Processed a total of {len(books_info)} books for subject '{subject_code}'")
-        else:
-            print(f"Could not click on the first book title for subject '{subject_code}'")
     
-    # Navigate back to the main search page
-    try:
-        # Find and click on a link to go back to the main search
-        # This might need to be customized based on the website's navigation
-        driver.get("https://aleweb.ncl.edu.tw/F?func=file&file_name=find-b&CON_LNG=ENG")
-        # print("Navigated back to the main search page")
-        time.sleep(2)
     except Exception as e:
-        print(f"Error returning to main search page: {str(e)}")
+        print(f"Error processing books for subject '{subject_code}': {str(e)}")
+        traceback.print_exc()
     
     return books_info
 
-def explore_subjects_and_all_books(subject_codes, db_path):
+def explore_subjects_and_all_books(subject_codes, db_path, resume_state=None):
     """
-    Function to iterate through multiple subject codes, perform a search for each,
-    process all books in the results for each subject, and save to a database.
-    Now saves each book individually to the database as it's processed.
+    Function to iterate through multiple subject codes with crash recovery support.
     
     Args:
         subject_codes: List of subject codes to search for
         db_path: Path to the SQLite database file
+        resume_state: Previous state to resume from (if any)
     
     Returns:
         list: List of dictionaries containing extracted book information
     """
+    driver = None
+    
     try:
         print("Initializing Chrome WebDriver...")
-        
-        # Initialize the Chrome driver
-        driver = webdriver.Chrome()
-        
-        print("WebDriver initialized successfully")
+        driver = initialize_driver()
         
         # Create the directory if it doesn't exist
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
         
-        # Just print a message about the database - will append to it if it exists
+        # Database setup message
         if os.path.exists(db_path):
             print(f"Database exists at {db_path}, will append new data")
         else:
             print(f"Creating a new database at {db_path}")
         
-        # Initialize a list to store all book information (for return purposes)
+        # Initialize a list to store all book information
         all_book_info = []
         
-        # Loop through each subject code
-        for i, subject_code in enumerate(subject_codes):
+        # Determine starting point
+        start_subject_index = 0
+        start_book_index = 0
+        
+        if resume_state:
+            start_subject_index = resume_state["subject_index"]
+            start_book_index = resume_state["book_index"]
+            print(f"Resuming from subject {start_subject_index + 1}/{len(subject_codes)}, book {start_book_index + 1}")
+        
+        # Loop through each subject code starting from the resume point
+        for i in range(start_subject_index, len(subject_codes)):
+            subject_code = subject_codes[i]
             print(f"\nProcessing subject {i+1}/{len(subject_codes)}: {subject_code}")
             
-            # Navigate to the advanced search page
-            navigate_to_advanced_search(driver)
-            
-            # Refine the search with the current subject code
-            # Now returns a Boolean indicating if search results were found
-            results_found = refine_search(driver, subject_code, language="CHI", start_year="1950", end_year="2023")
-            
-            # Only proceed if search results were found
-            if results_found:
+            try:
+                # Navigate to the advanced search page
+                navigate_to_advanced_search(driver)
+                
+                # Refine the search with the current subject code
+                results_found, driver = safe_driver_operation(refine_search, driver, subject_code, "CHI", "1950", "2023")
+                
+                # Only proceed if search results were found
+                if results_found:
+                    try:
+                        # Wait for the page to load
+                        wait = WebDriverWait(driver, 30)
+
+                        # Extract the total number of books in the search
+                        element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "td.text3[width='20%'][nowrap]")))
+                        total_info = element.text
+
+                        # Look for the number after "Total"
+                        match = re.search(r'Total\s+(\d+)', total_info)
+                        if match:
+                            tot_books = int(match.group(1))
+                            print(f"Total number of books in category {subject_code}: {tot_books}")
+                        else:
+                            tot_books = 0
+
+                        # If books were found for this subject
+                        if tot_books > 0:
+                            # Determine which book to start from for this subject
+                            current_book_start = start_book_index if i == start_subject_index else 0
+                            
+                            # Update state for this subject
+                            save_state(i, subject_code, current_book_start, tot_books, driver.current_url)
+                            
+                            # Process books for this subject
+                            subject_books = process_all_books_for_subject(
+                                driver, subject_code, tot_books, db_path, current_book_start
+                            )
+                            
+                            # Add to the master list
+                            all_book_info.extend(subject_books)
+                            
+                            print(f"Successfully processed and saved {len(subject_books)} books for subject '{subject_code}'")
+                        else:
+                            print(f"No books found for subject '{subject_code}'")
+                            
+                    except Exception as e:
+                        print(f"Error processing search results for subject '{subject_code}': {str(e)}")
+                        traceback.print_exc()
+                        # Continue to the next subject
+                else:
+                    print(f"No search results found for subject '{subject_code}' - moving to next subject")
+                
+                # Reset book start index for subsequent subjects
+                start_book_index = 0
+                
+                # Sleep to avoid problems with the website
+                time.sleep(randint(1, 3))
+                
+                # Let user know we're moving to the next subject
+                if i < len(subject_codes) - 1:
+                    print(f"\nMoving to the next subject: {subject_codes[i+1]}")
+                else:
+                    print("\nAll subjects have been processed.")
+                    
+            except Exception as e:
+                print(f"Critical error processing subject '{subject_code}': {str(e)}")
+                traceback.print_exc()
+                
+                # Try to recover by reinitializing the driver
                 try:
-                    # Wait for the page to load
-                    wait = WebDriverWait(driver, 30)
-
-                    # Extract the total number of books in the search
-                    element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "td.text3[width='20%'][nowrap]")))
-                    total_info = element.text
-                    # print(f"Raw total info text: '{total_info}'")
-
-                    # Look for the number after "Total"
-                    match = re.search(r'Total\s+(\d+)', total_info)
-                    if match:
-                        tot_books = int(match.group(1))
-                        print(f"Total number of books in category {subject_code}: {tot_books}")
-                    else:
-                        # print(f"Pattern didn't match. Raw text: '{total_info}'")
-                        tot_books = 0  # Default to 0 if we can't extract the number
-
-                    # If books were found for this subject
-                    if tot_books > 0:
-                        # Process all books for this subject, passing the database path
-                        # Note: Books are now saved individually within process_all_books_for_subject
-                        subject_books = process_all_books_for_subject(driver, subject_code, tot_books, db_path)
-                        
-                        # Add to the master list (for return purposes and summary)
-                        all_book_info.extend(subject_books)
-                        
-                        print(f"Successfully processed and saved {len(subject_books)} books for subject '{subject_code}'")
-                    else:
-                        print(f"No books found for subject '{subject_code}'")
-                        
-                except Exception as e:
-                    print(f"Error processing search results for subject '{subject_code}': {str(e)}")
-                    # Continue to the next subject regardless of errors
-            else:
-                print(f"No search results found for subject '{subject_code}' - moving to next subject")
-            
-            # Sleep to avoid having problems with the website
-            time.sleep(randint(1, 3))
-            
-            # Let user know we're moving to the next subject automatically
-            if i < len(subject_codes) - 1:
-                print(f"\nMoving to the next subject: {subject_codes[i+1]}")
-            else:
-                print("\nAll subjects have been processed.")
+                    if driver:
+                        driver.quit()
+                    driver = initialize_driver()
+                    print("Driver reinitialized due to critical error")
+                    
+                    # Save current state before continuing
+                    save_state(i, subject_code, 0, 0, "")
+                    
+                except Exception as recovery_error:
+                    print(f"Failed to recover from critical error: {str(recovery_error)}")
+                    raise
+        
+        # Clear state file on successful completion
+        clear_state()
         
         # Print the final results
         print("\n\n===== EXTRACTED BOOK INFORMATION SUMMARY =====")
         print(f"Total books extracted and saved to database: {len(all_book_info)}")
         print(f"Note: Each book was saved to the database immediately after being scraped.")
         
-        # Print a sample of the first 10 books with updated field display
-        for i, book in enumerate(all_book_info[:10]):  # Print first 10 books for preview
+        # Print a sample of the first 10 books
+        for i, book in enumerate(all_book_info[:10]):
             print(f"\nBook {i+1}:")
-            # Updated to ensure 'publication' field is shown
             field_order = ['subject', 'url', 'record_number', 'title', 'language', 'imprint', 'publication']
             for key in field_order:
                 if key in book:
@@ -616,26 +816,35 @@ def explore_subjects_and_all_books(subject_codes, db_path):
         if len(all_book_info) > 10:
             print(f"\n... and {len(all_book_info) - 10} more books were saved to database")
         
-        # Give the user a chance to review results before closing the browser
-        input("\nPress Enter to close the browser...")
-        
         return all_book_info
     
     except Exception as e:
-        print(f"Error during exploration: {str(e)}")
-        import traceback
+        print(f"Fatal error during exploration: {str(e)}")
         traceback.print_exc()
+        
+        # Save current state for potential resume
+        if 'i' in locals() and 'subject_codes' in locals():
+            try:
+                current_subject = subject_codes[i] if i < len(subject_codes) else "unknown"
+                save_state(i, current_subject, 0, 0, driver.current_url if driver else "")
+                print("State saved for potential resume")
+            except:
+                print("Could not save state on fatal error")
+        
         return []
     finally:
-        # Close the driver if it was successfully initialized
-        if 'driver' in locals():
-            driver.quit()
-            print("Browser closed")
-        else:
-            print("Driver was not initialized")
+        # Close the driver if it exists
+        if driver:
+            try:
+                driver.quit()
+                print("Browser closed")
+            except:
+                print("Error closing browser")
 
-# Call this function with a list of subject codes
-if __name__ == "__main__":
+def main_with_recovery():
+    """
+    Main function that handles crash recovery automatically.
+    """
     # Define the database path
     db_path = "../scraped_data/ncl_subject_books_details.db"
     
@@ -700,5 +909,53 @@ if __name__ == "__main__":
        # "木製品"     # Wood products
     ]
     
-    # Run the program with the subject list and database path
-    book_results = explore_subjects_and_all_books(keywords, db_path)
+    # Check for previous state
+    resume_state = load_state()
+    
+    if resume_state:
+        response = input(f"Found previous incomplete session. Resume from subject {resume_state['subject_index']+1}, book {resume_state['book_index']+1}? (y/n): ")
+        if response.lower() != 'y':
+            print("Starting fresh session...")
+            clear_state()
+            resume_state = None
+        else:
+            print("Resuming previous session...")
+    
+    max_retries = 3
+    retry_count = 0
+    
+    while retry_count < max_retries:
+        try:
+            # Run the program with crash recovery
+            book_results = explore_subjects_and_all_books(keywords, db_path, resume_state)
+            
+            if book_results or not resume_state:  # Success or first run
+                print("Scraping completed successfully!")
+                break
+            else:
+                print("No results obtained, but this might be expected if resuming from end of list")
+                break
+                
+        except Exception as e:
+            retry_count += 1
+            print(f"\nProgram crashed (attempt {retry_count}/{max_retries}): {str(e)}")
+            
+            if retry_count < max_retries:
+                print("Attempting to recover and continue...")
+                # Load the latest state
+                resume_state = load_state()
+                if resume_state:
+                    print(f"Will resume from subject {resume_state['subject_index']+1}, book {resume_state['book_index']+1}")
+                else:
+                    print("No recovery state found, will restart from beginning")
+                
+                # Wait before retrying
+                time.sleep(10)
+            else:
+                print("Maximum retry attempts reached. Please check the logs and try again manually.")
+                print("You can resume from the last saved state by running the program again.")
+                break
+
+# Call this function with crash recovery
+if __name__ == "__main__":
+    main_with_recovery()
