@@ -41,7 +41,7 @@ def navigate_to_advanced_search(driver):
         raise
 
 
-def refine_search(driver, subject_term, language="CHI", start_year="1950", end_year="1970"):
+def refine_search(driver, subject_term, language="CHI", start_year="1950", end_year="2023"):
     """
     Function to refine the search on the advanced search page.
     
@@ -50,7 +50,7 @@ def refine_search(driver, subject_term, language="CHI", start_year="1950", end_y
         subject_term: The subject term to search for
         language: The language to filter by (default: "CHI" for Chinese)
         start_year: The starting year for publication date filter (default: "1950")
-        end_year: The ending year for publication date filter (default: "1970")
+        end_year: The ending year for publication date filter (default: "2023")
     
     Returns:
         bool: True if search results were found, False otherwise
@@ -503,7 +503,7 @@ def explore_subjects_and_all_books(subject_codes, db_path):
             
             # Refine the search with the current subject code
             # Now returns a Boolean indicating if search results were found
-            results_found = refine_search(driver, subject_code, language="CHI", start_year="1950", end_year="1970")
+            results_found = refine_search(driver, subject_code, language="CHI", start_year="1950", end_year="2023")
             
             # Only proceed if search results were found
             if results_found:
