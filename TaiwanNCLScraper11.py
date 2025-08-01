@@ -141,7 +141,7 @@ def navigate_to_url_directly(driver, url):
         print(f"Error navigating to URL {url}: {e}")
         return False
 
-def refine_search(driver, subject_term, language="CHI", start_year="1950", end_year="2023"):
+def refine_search(driver, subject_term, language="CHI", start_year="1500", end_year="2023"):
     """
     Function to refine the search on the advanced search page.
     
@@ -149,7 +149,7 @@ def refine_search(driver, subject_term, language="CHI", start_year="1950", end_y
         driver: The Selenium WebDriver instance
         subject_term: The subject term to search for
         language: The language to filter by (default: "CHI" for Chinese)
-        start_year: The starting year for publication date filter (default: "1950")
+        start_year: The starting year for publication date filter (default: "1500")
         end_year: The ending year for publication date filter (default: "2023")
     
     Returns:

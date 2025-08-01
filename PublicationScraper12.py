@@ -865,48 +865,48 @@ def main_with_recovery():
         "建設",      # Construction
         "彈性計",    # Elastometers
         "工程",      # Engineering
-        "炸藥",      # Explosives
-        "農業",    # Farming
-        "釣魚",      # Fishing
-        "林業",      # Forestry
-        "鍛造作品",  # Forged works
-        "燃料",      # Fuel
+       "炸藥",      # Explosives
+       "農業",    # Farming
+       "釣魚",      # Fishing
+       "林業",      # Forestry
+       "鍛造作品",  # Forged works
+       "燃料",      # Fuel
        "毛皮製品",  # Fur products
        "提供",     # Furnishing 
         "傢俱",     # Furnishings
        "硬體",      # Hardware
-       "家政學",    # Home economics
-        "家庭工作坊", # Home workshop
-        "園藝",      # Horticulture
-        "家用電器",  # Household appliances
-        "工業",      # Industry
+        "家政學",    # Home economics
+       "家庭工作坊", # Home workshop
+       "園藝",      # Horticulture
+       "家用電器",  # Household appliances
+       "工業",      # Industry
         "鐵",        # Iron
-        "皮具",      # Leather goods
-        "皮革加工", # Leather processing
-        "木材加工",  # Lumber processing
+       "皮具",      # Leather goods
+       "皮革加工", # Leather processing
+       "木材加工",  # Lumber processing
        "管理",      # Management
-        "製造",      # Manufacturing
-        "製造業",    # Manufacturing industry
-        "冶金",      # Metallurgy
-        "五金",      # Hardware/Metal products
-        "金工",      # Metalwork
-        "軍事",      # Military
-        "採礦",      # Mining
-        "專利",      # Patents
-        "藥理學",    # Pharmacology
+       "製造",      # Manufacturing
+       "製造業",    # Manufacturing industry
+       "冶金",      # Metallurgy
+       "五金",      # Hardware/Metal products
+       "金工",      # Metalwork
+       "軍事",      # Military
+       "採礦",      # Mining
+       "專利",      # Patents
+       "藥理學",    # Pharmacology
        "種植園作物", # Plantation crops
-        "精密儀器",  # Precision instruments
+       "精密儀器",  # Precision instruments
        "乳製品加工", # Processing of dairy products
-        "公共關係",  # Public relations
-        "鐵路",      # Railways
+       "公共關係",  # Public relations
+       "鐵路",      # Railways
         "屋頂覆蓋物", # Roofing materials
-        "鋼",        # Steel
+       "鋼",        # Steel
         "科技",      # Technology
        "紡織品",    # Textiles
-       # "交通管制",  # Traffic control
+       "交通管制",  # Traffic control
        "運輸",      # Transportation
         "水結構",    # Water structures
-       # "木製品"     # Wood products
+       "木製品"     # Wood products
     ]
     
     # Check for previous state
